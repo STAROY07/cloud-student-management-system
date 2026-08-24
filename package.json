@@ -1,0 +1,32 @@
+{
+  "name": "cloud-student-management-system",
+  "version": "1.0.0",
+  "description": "Production-grade Cloud Student Management System for Semester 5 Cloud Computing",
+  "private": true,
+  "scripts": {
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build:frontend": "cd frontend && npm run build",
+    "build": "npm run build:frontend",
+    "start": "cd backend && npm start",
+    "migrate": "cd backend && npm run migrate",
+    "seed": "cd backend && npm run seed",
+    "test": "cd backend && npm test"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "keywords": [
+    "cloud-computing",
+    "student-management-system",
+    "google-cloud-run",
+    "cloud-sql",
+    "postgresql",
+    "react",
+    "nodejs",
+    "express"
+  ],
+  "author": "",
+  "license": "ISC"
+}

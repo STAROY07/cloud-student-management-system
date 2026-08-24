@@ -1,0 +1,31 @@
+const ROLES = Object.freeze({
+  ADMIN: 'ADMIN',
+  FACULTY: 'FACULTY',
+  STUDENT: 'STUDENT',
+});
+
+const USER_STATUS = Object.freeze({
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
+  SUSPENDED: 'SUSPENDED',
+});
+
+const ATTENDANCE_STATUS = Object.freeze({
+  PRESENT: 'PRESENT',
+  ABSENT: 'ABSENT',
+  LATE: 'LATE',
+  EXCUSED: 'EXCUSED',
+});
+
+const ENROLLMENT_STATUS = Object.freeze({
+  ACTIVE: 'ACTIVE',
+  COMPLETED: 'COMPLETED',
+  DROPPED: 'DROPPED',
+});
+
+module.exports = {
+  ROLES,
+  USER_STATUS,
+  ATTENDANCE_STATUS,
+  ENROLLMENT_STATUS,
+};
