@@ -1,7 +1,10 @@
-const API_BASE_URL = '/api';
+import { handleMockRequest } from './mockData';
+
+// API base URL from environment (e.g. Google Cloud Run / Render) or default proxy
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '/api' : '');
 
 /**
- * Generic HTTP Request Wrapper
+ * Robust Generic HTTP Request Wrapper with Cloud Mock Fallback
  */
 export const request = async (endpoint, options = {}) => {
   const token = localStorage.getItem('sms_auth_token');
@@ -17,6 +20,11 @@ export const request = async (endpoint, options = {}) => {
     headers,
   };
 
+  // If deployed on static host (Netlify) without a backend API URL, use interactive demo store
+  if (!API_BASE_URL && !import.meta.env.DEV) {
+    return handleMockRequest(endpoint, options);
+  }
+
   try {
     const res = await fetch(`${API_BASE_URL}${endpoint}`, config);
 
@@ -25,7 +33,18 @@ export const request = async (endpoint, options = {}) => {
       return { success: true };
     }
 
-    const data = await res.json();
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      // Netlify SPA returned HTML page for undefined API route
+      return handleMockRequest(endpoint, options);
+    }
+
+    let data;
+    try {
+      data = await res.json();
+    } catch (parseErr) {
+      return handleMockRequest(endpoint, options);
+    }
 
     if (!res.ok) {
       // If 401 Unauthorized, remove stale token and notify session expiration
@@ -46,6 +65,10 @@ export const request = async (endpoint, options = {}) => {
 
     return data;
   } catch (err) {
+    // If network failed (backend not deployed, offline, connection refused), seamlessly use interactive mock store
+    if (err.name === 'TypeError' || err.message?.includes('fetch') || err.message?.includes('JSON')) {
+      return handleMockRequest(endpoint, options);
+    }
     throw err;
   }
 };
