@@ -1,44 +1,58 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../config/firebase';
 import { api } from '../services/api';
+import { getUserProfileDoc } from '../services/firebaseAuth';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sms_user_data');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Restore session on mount if token is stored
-    const checkAuth = async () => {
-      const token = localStorage.getItem('sms_auth_token');
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const res = await api.getMe();
-        if (res.success && res.data?.user) {
-          setUser(res.data.user);
-        } else {
-          localStorage.removeItem('sms_auth_token');
+    // Listen for Firebase Auth state changes
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const profile = await getUserProfileDoc(firebaseUser.uid, firebaseUser.email);
+          const fullUser = {
+            ...profile,
+            uid: firebaseUser.uid,
+            id: firebaseUser.uid,
+            email: firebaseUser.email,
+          };
+          setUser(fullUser);
+          localStorage.setItem('sms_user_data', JSON.stringify(fullUser));
+        } catch (err) {
+          console.warn('[AuthContext] Failed to retrieve user profile:', err);
+        }
+      } else {
+        const saved = localStorage.getItem('sms_user_data');
+        if (!saved) {
           setUser(null);
         }
-      } catch (err) {
-        localStorage.removeItem('sms_auth_token');
-        setUser(null);
-      } finally {
-        setLoading(false);
       }
-    };
+      setLoading(false);
+    });
 
-    checkAuth();
+    return () => unsubscribe();
   }, []);
 
   const login = async (email, password) => {
     const res = await api.login({ email, password });
-    if (res.success && res.data) {
-      localStorage.setItem('sms_auth_token', res.data.token);
+    if (res?.user) {
+      setUser(res.user);
+      return res.user;
+    }
+    if (res?.success && res.data?.user) {
       setUser(res.data.user);
       return res.data.user;
     }
@@ -49,15 +63,20 @@ export const AuthProvider = ({ children }) => {
     try {
       await api.logout();
     } catch (err) {
-      // Proceed with local logout regardless of API response
+      // Proceed with local logout regardless of error
     } finally {
       localStorage.removeItem('sms_auth_token');
+      localStorage.removeItem('sms_user_data');
       setUser(null);
     }
   };
 
   const updateUser = (updatedFields) => {
-    setUser((prev) => ({ ...prev, ...updatedFields }));
+    setUser((prev) => {
+      const updated = { ...prev, ...updatedFields };
+      localStorage.setItem('sms_user_data', JSON.stringify(updated));
+      return updated;
+    });
   };
 
   return (

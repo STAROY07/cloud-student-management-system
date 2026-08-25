@@ -1,0 +1,101 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions for Role-Based Access Control (RBAC)
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function getRole() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? getUserData().role
+        : 'STUDENT';
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (getRole() == 'ADMIN' || request.auth.token.email == 'admin@university.edu');
+    }
+
+    function isFaculty() {
+      return isSignedIn() && (getRole() == 'FACULTY' || isAdmin());
+    }
+
+    function isStudent() {
+      return isSignedIn() && getRole() == 'STUDENT';
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // 1. Users Collection
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      // Allow user to edit their own profile fields (name, phone) or Admin full control
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // 2. Students Directory
+    match /students/{studentId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // 3. Faculty Directory
+    match /faculty/{facultyId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // 4. Courses Catalog
+    match /courses/{courseId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // 5. Course Enrollments
+    match /enrollments/{enrollmentId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // 6. Attendance Records
+    match /attendance/{attendanceId} {
+      allow read: if isSignedIn();
+      // Faculty and Admin can mark and update attendance; Students are blocked from modifying
+      allow write: if isFaculty() || isAdmin();
+    }
+
+    // 7. Academic Marks & Grades
+    match /marks/{markId} {
+      allow read: if isSignedIn();
+      // Faculty and Admin can enter and update marks; Students cannot write
+      allow write: if isFaculty() || isAdmin();
+    }
+
+    // 8. Examination Schedules
+    match /exams/{examId} {
+      allow read: if isSignedIn();
+      allow write: if isFaculty() || isAdmin();
+    }
+
+    // 9. System Audit Logs
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if false; // Immutable audit log
+    }
+
+    // 10. System Metadata
+    match /system_metadata/{docId} {
+      allow read, write: if isSignedIn();
+    }
+  }
+}
