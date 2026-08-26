@@ -23,6 +23,7 @@ import { Spinner } from '../../components/common/Spinner';
 import { StatusBadge } from '../../components/common/Badge';
 import { Modal } from '../../components/common/Modal';
 import { EmptyState } from '../../components/common/EmptyState';
+import { DepartmentOptions, SemesterOptions } from '../../components/common/AcademicOptions';
 
 export const StudentList = () => {
   const { isAdmin } = useAuth();
@@ -171,9 +172,7 @@ export const StudentList = () => {
             onChange={(e) => setDepartment(e.target.value)}
             style={{ width: 190 }}
           >
-            <option value="">All Departments</option>
-            <option value="Computer Science">Computer Science</option>
-            <option value="Information Technology">Information Technology</option>
+            <DepartmentOptions placeholder="All Departments" />
           </select>
 
           <select
@@ -182,10 +181,7 @@ export const StudentList = () => {
             onChange={(e) => setSemester(e.target.value)}
             style={{ width: 140 }}
           >
-            <option value="">All Semesters</option>
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
-              <option key={s} value={s}>Semester {s}</option>
-            ))}
+            <SemesterOptions placeholder="All Semesters" />
           </select>
 
           <button className="btn btn-secondary" onClick={() => fetchStudents(pagination.page)}>
@@ -398,8 +394,7 @@ export const StudentList = () => {
                   value={formData.department}
                   onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                 >
-                  <option value="Computer Science">Computer Science</option>
-                  <option value="Information Technology">Information Technology</option>
+                  <DepartmentOptions />
                 </select>
               </div>
               <div className="form-group">
@@ -409,9 +404,7 @@ export const StudentList = () => {
                   value={formData.semester}
                   onChange={(e) => setFormData({ ...formData, semester: e.target.value })}
                 >
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
-                    <option key={s} value={s}>Semester {s}</option>
-                  ))}
+                  <SemesterOptions />
                 </select>
               </div>
             </div>
