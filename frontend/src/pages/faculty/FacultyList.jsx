@@ -16,6 +16,7 @@ import { Spinner } from '../../components/common/Spinner';
 import { StatusBadge } from '../../components/common/Badge';
 import { Modal } from '../../components/common/Modal';
 import { EmptyState } from '../../components/common/EmptyState';
+import { DepartmentOptions } from '../../components/common/AcademicOptions';
 
 export const FacultyList = () => {
   const { isAdmin } = useAuth();
@@ -122,9 +123,7 @@ export const FacultyList = () => {
             onChange={(e) => setDepartment(e.target.value)}
             style={{ width: 190 }}
           >
-            <option value="">All Departments</option>
-            <option value="Computer Science">Computer Science</option>
-            <option value="Information Technology">Information Technology</option>
+            <DepartmentOptions placeholder="All Departments" />
           </select>
 
           <button className="btn btn-secondary" onClick={fetchFaculty}>
@@ -259,8 +258,7 @@ export const FacultyList = () => {
               value={formData.department}
               onChange={(e) => setFormData({ ...formData, department: e.target.value })}
             >
-              <option value="Computer Science">Computer Science</option>
-              <option value="Information Technology">Information Technology</option>
+              <DepartmentOptions />
             </select>
           </div>
         </form>

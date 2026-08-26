@@ -1,30 +1,27 @@
 const { query } = require('../config/db');
-const HTTP_STATUS = require('../constants/httpStatus');
+const asyncHandler = require('../utils/asyncHandler');
+const { sendSuccess } = require('../utils/response');
+const { buildFilters } = require('../utils/sqlBuilder');
 
 /**
  * Generate academic reports from live database data
  */
-const getAcademicReports = async (req, res, next) => {
-  try {
-    const { department, semester, academicYear = '2024-2025' } = req.query;
+const getAcademicReports = asyncHandler(async (req, res) => {
+  const { department, semester, academicYear = '2024-2025' } = req.query;
 
-    const conditions = [];
-    const params = [academicYear];
-    let pIdx = 2;
+  const filters = buildFilters(
+    [
+      { value: department, condition: (p) => `s.department = ${p}` },
+      { value: semester ? parseInt(semester, 10) : undefined, condition: (p) => `s.semester = ${p}` },
+    ],
+    { startIndex: 2 }
+  );
 
-    if (department) {
-      conditions.push(`s.department = $${pIdx++}`);
-      params.push(department);
-    }
-    if (semester) {
-      conditions.push(`s.semester = $${pIdx++}`);
-      params.push(parseInt(semester, 10));
-    }
+  const params = [academicYear, ...filters.params];
+  const whereClause = filters.clause('AND');
 
-    const whereClause = conditions.length > 0 ? `AND ${conditions.join(' AND ')}` : '';
-
-    // 1. Department Enrollment & Performance Summary
-    const deptSummaryRes = await query(`
+  // 1. Department Enrollment & Performance Summary
+  const deptSummaryRes = await query(`
       SELECT 
         s.department,
         COUNT(DISTINCT s.id) as total_students,
@@ -40,8 +37,8 @@ const getAcademicReports = async (req, res, next) => {
       ORDER BY s.department ASC
     `, params);
 
-    // 2. Course-wise Performance Roster
-    const coursePerformanceRes = await query(`
+  // 2. Course-wise Performance Roster
+  const coursePerformanceRes = await query(`
       SELECT 
         c.id, c.code, c.name, c.department, c.semester,
         fu.name as faculty_lead,
@@ -61,8 +58,8 @@ const getAcademicReports = async (req, res, next) => {
       ORDER BY c.code ASC
     `, params);
 
-    // 3. Top Performing Students
-    const topStudentsRes = await query(`
+  // 3. Top Performing Students
+  const topStudentsRes = await query(`
       SELECT 
         s.id, s.roll_no, u.name as student_name, s.department, s.semester,
         ROUND(AVG(m.score * 100.0 / NULLIF(m.max_score, 0)), 2) as aggregate_score,
@@ -79,19 +76,15 @@ const getAcademicReports = async (req, res, next) => {
       LIMIT 10
     `, params);
 
-    return res.status(HTTP_STATUS.OK).json({
-      success: true,
-      data: {
-        academicYear,
-        departmentSummary: deptSummaryRes.rows,
-        coursePerformance: coursePerformanceRes.rows,
-        topStudents: topStudentsRes.rows,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-};
+  return sendSuccess(res, {
+    data: {
+      academicYear,
+      departmentSummary: deptSummaryRes.rows,
+      coursePerformance: coursePerformanceRes.rows,
+      topStudents: topStudentsRes.rows,
+    },
+  });
+});
 
 module.exports = {
   getAcademicReports,

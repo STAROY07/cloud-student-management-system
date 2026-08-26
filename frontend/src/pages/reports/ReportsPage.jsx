@@ -10,6 +10,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { Spinner } from '../../components/common/Spinner';
+import { DepartmentOptions, SemesterOptions } from '../../components/common/AcademicOptions';
 
 export const ReportsPage = () => {
   const { showToast } = useToast();
@@ -55,9 +56,7 @@ export const ReportsPage = () => {
             onChange={(e) => setDepartment(e.target.value)}
             style={{ width: 200 }}
           >
-            <option value="">All Academic Departments</option>
-            <option value="Computer Science">Computer Science</option>
-            <option value="Information Technology">Information Technology</option>
+            <DepartmentOptions placeholder="All Academic Departments" />
           </select>
 
           <select
@@ -66,10 +65,7 @@ export const ReportsPage = () => {
             onChange={(e) => setSemester(e.target.value)}
             style={{ width: 150 }}
           >
-            <option value="">All Semesters</option>
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
-              <option key={s} value={s}>Semester {s}</option>
-            ))}
+            <SemesterOptions placeholder="All Semesters" />
           </select>
 
           <button className="btn btn-secondary" onClick={fetchReports}>
