@@ -39,7 +39,9 @@ export const recordAuditLog = async (action, entity, entityId, details = {}) => 
       createdAt: serverTimestamp(),
     });
   } catch (err) {
-    console.warn('[Audit Log] Failed to persist log:', err.message);
+    // Audit logging is best-effort so it never breaks the triggering action,
+    // but the failure must be reported
+    console.error('[Audit Log] Failed to persist log:', err.code, err.message, { action, entity, entityId });
   }
 };
 
@@ -50,7 +52,10 @@ const getSessionUser = () => {
   try {
     const raw = localStorage.getItem('sms_user_data');
     if (raw) return JSON.parse(raw);
-  } catch (e) {}
+  } catch (err) {
+    console.error('[Session] Stored user data is corrupt and was discarded:', err.message);
+    localStorage.removeItem('sms_user_data');
+  }
   return { role: 'ADMIN' };
 };
 
@@ -1350,15 +1355,18 @@ export const deleteEnrollment = async (id) => {
 export const getHealth = async () => {
   const start = performance.now();
   let dbStatus = 'ONLINE';
+  let dbError = null;
   try {
     await getDoc(doc(db, 'system_metadata', 'seed_status'));
-  } catch (e) {
+  } catch (err) {
     dbStatus = 'OFFLINE';
+    dbError = err.message;
+    console.error('[Health] Firestore probe failed:', err.code, err.message);
   }
   const latency = Math.round(performance.now() - start);
 
   return {
-    status: 'HEALTHY',
+    status: dbStatus === 'ONLINE' ? 'HEALTHY' : 'DEGRADED',
     service: 'Cloud Student Management System (Firebase)',
     environment: 'production',
     uptimeSeconds: Math.round(performance.now() / 1000),
@@ -1367,6 +1375,7 @@ export const getHealth = async () => {
       status: dbStatus,
       mode: 'NoSQL Multi-Region Firestore Database',
       latencyMs: latency,
+      ...(dbError && { error: dbError }),
     },
     auth: {
       provider: 'Firebase Authentication (Identity Platform)',

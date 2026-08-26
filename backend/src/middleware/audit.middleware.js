@@ -13,7 +13,15 @@ const recordAuditLog = async ({ actorId, action, entity, entityId = null, detail
     );
     logger.info(`Audit Log: [${action}] by actor ${actorId || 'SYSTEM'} on ${entity}:${entityId || 'N/A'}`);
   } catch (error) {
-    logger.error('Failed to write audit log', { error: error.message, action, entity });
+    // Audit writes must never break the request, but they must stay visible
+    logger.error('Failed to write audit log', {
+      error: error.message,
+      code: error.code,
+      stack: error.stack,
+      action,
+      entity,
+      entityId,
+    });
   }
 };
 

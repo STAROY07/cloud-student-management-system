@@ -49,11 +49,14 @@ export const CourseDetail = () => {
   const fetchAvailableStudents = async () => {
     try {
       const res = await api.getStudents({ limit: 100 });
-      if (res.success) {
-        setAvailableStudents(res.data.students);
+      if (!res.success) {
+        throw new Error(res.error?.message || 'Failed to load the student directory.');
       }
+      setAvailableStudents(res.data.students);
     } catch (err) {
-      // Non-blocking
+      // Enrollment can still be retried, so this stays non-fatal but visible
+      console.error('[CourseDetail] Failed to load available students:', err);
+      showToast('error', err.message || 'Failed to load the student directory.');
     }
   };
 

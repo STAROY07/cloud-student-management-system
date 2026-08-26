@@ -51,6 +51,7 @@ export const SettingsPage = () => {
 
   // Cloud Telemetry & Health Probe
   const [healthData, setHealthData] = useState(null);
+  const [healthError, setHealthError] = useState('');
   const [healthLoading, setHealthLoading] = useState(true);
 
   useEffect(() => {
@@ -65,10 +66,13 @@ export const SettingsPage = () => {
   const fetchHealth = async () => {
     try {
       setHealthLoading(true);
+      setHealthError('');
       const res = await api.getHealth();
       setHealthData(res);
     } catch (err) {
-      // Non-blocking
+      console.error('[Settings] Health probe failed:', err);
+      setHealthData(null);
+      setHealthError(err.message || 'Health probe unreachable.');
     } finally {
       setHealthLoading(false);
     }
@@ -77,6 +81,8 @@ export const SettingsPage = () => {
   useEffect(() => {
     fetchHealth();
   }, []);
+
+  const isHealthy = ['OK', 'HEALTHY'].includes(healthData?.status);
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
@@ -88,10 +94,11 @@ export const SettingsPage = () => {
     try {
       setProfileLoading(true);
       const res = await api.updateProfile({ name: name.trim(), phone: phone.trim() });
-      if (res.success && res.data?.user) {
-        updateUser(res.data.user);
-        showToast('success', 'Personal profile updated successfully.');
+      if (!res.success || !res.data?.user) {
+        throw new Error(res.error?.message || 'Failed to update profile.');
       }
+      updateUser(res.data.user);
+      showToast('success', 'Personal profile updated successfully.');
     } catch (err) {
       showToast('error', err.message || 'Failed to update profile.');
     } finally {
@@ -150,13 +157,14 @@ export const SettingsPage = () => {
         currentPassword: emailPassword,
       });
 
-      if (res.success && res.data?.user) {
-        updateUser(res.data.user);
-        showToast('success', 'University email updated successfully! Use new email for next login.');
-        setNewEmail('');
-        setConfirmNewEmail('');
-        setEmailPassword('');
+      if (!res.success || !res.data?.user) {
+        throw new Error(res.error?.message || 'Failed to update email address.');
       }
+      updateUser(res.data.user);
+      showToast('success', 'University email updated successfully! Use new email for next login.');
+      setNewEmail('');
+      setConfirmNewEmail('');
+      setEmailPassword('');
     } catch (err) {
       showToast('error', err.message || 'Failed to update email address.');
     } finally {
@@ -666,16 +674,27 @@ export const SettingsPage = () => {
                   flexWrap: 'wrap',
                   gap: '0.5rem',
                   padding: '0.75rem 1rem',
-                  background: '#ecfdf5',
-                  border: '1px solid #a7f3d0',
+                  background: isHealthy ? '#ecfdf5' : '#fef2f2',
+                  border: `1px solid ${isHealthy ? '#a7f3d0' : '#fecaca'}`,
                   borderRadius: 6,
                   marginBottom: '1.25rem',
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#059669', fontWeight: 600, fontSize: '0.85rem' }}>
-                    <CheckCircle2 size={16} />
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    color: isHealthy ? '#059669' : '#b91c1c',
+                    fontWeight: 600,
+                    fontSize: '0.85rem',
+                  }}>
+                    {isHealthy ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
                     <span>Liveness & Readiness: {healthData.status}</span>
                   </div>
-                  <span style={{ fontSize: '0.75rem', color: '#047857', fontWeight: 600 }}>Uptime: {healthData.uptimeSeconds}s</span>
+                  <span style={{
+                    fontSize: '0.75rem',
+                    color: isHealthy ? '#047857' : '#b91c1c',
+                    fontWeight: 600,
+                  }}>Uptime: {healthData.uptimeSeconds}s</span>
                 </div>
 
                 <div style={{
@@ -702,6 +721,11 @@ export const SettingsPage = () => {
                   <div style={{ padding: '0.75rem', background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0' }}>
                     <div style={{ color: '#64748b', fontSize: '0.75rem', marginBottom: '0.25rem' }}>Database Status</div>
                     <StatusBadge status={healthData.database?.status} />
+                    {healthData.database?.error && (
+                      <div style={{ color: '#b91c1c', fontSize: '0.75rem', marginTop: '0.35rem' }}>
+                        {healthData.database.error}
+                      </div>
+                    )}
                   </div>
 
                   <div style={{ padding: '0.75rem', background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0' }}>
@@ -722,7 +746,7 @@ export const SettingsPage = () => {
               </div>
             ) : (
               <div style={{ color: '#dc2626', fontSize: '0.85rem' }}>
-                Health probe unreachable.
+                {healthError || 'Health probe unreachable.'}
               </div>
             )}
           </div>

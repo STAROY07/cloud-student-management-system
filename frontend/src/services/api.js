@@ -2,10 +2,31 @@ import * as firebaseAuth from './firebaseAuth';
 import * as firebaseDb from './firebaseDb';
 
 /**
+ * Rejects envelopes that report a failure so callers can never mistake an
+ * unsuccessful response for a successful one.
+ */
+const assertSuccess = (name, result) => {
+  if (result && result.success === false) {
+    const { code, message } = result.error || {};
+    console.error(`[API] ${name} returned an unsuccessful response:`, code, message);
+    throw Object.assign(new Error(message || `${name} failed.`), { code });
+  }
+  return result;
+};
+
+const withFailureCheck = (methods) =>
+  Object.fromEntries(
+    Object.entries(methods).map(([name, method]) => [
+      name,
+      async (...args) => assertSuccess(name, await method(...args)),
+    ])
+  );
+
+/**
  * Cloud Student Management System Unified API Interface
  * Powered by Firebase Authentication & Cloud Firestore
  */
-export const api = {
+export const api = withFailureCheck({
   // Authentication & Profile (Firebase Auth + Firestore)
   login: (credentials) => firebaseAuth.loginWithFirebase(credentials.email, credentials.password),
   getMe: () => firebaseAuth.getFirebaseMe(),
@@ -67,4 +88,4 @@ export const api = {
 
   // Health & Cloud Telemetry
   getHealth: () => firebaseDb.getHealth(),
-};
+});

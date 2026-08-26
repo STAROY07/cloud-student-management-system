@@ -11,11 +11,14 @@ export const AuthProvider = ({ children }) => {
     try {
       const saved = localStorage.getItem('sms_user_data');
       return saved ? JSON.parse(saved) : null;
-    } catch (e) {
+    } catch (err) {
+      console.error('[AuthContext] Stored session is corrupt and was discarded:', err.message);
+      localStorage.removeItem('sms_user_data');
       return null;
     }
   });
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState(null);
 
   useEffect(() => {
     // Listen for Firebase Auth state changes
@@ -30,9 +33,13 @@ export const AuthProvider = ({ children }) => {
             email: firebaseUser.email,
           };
           setUser(fullUser);
+          setAuthError(null);
           localStorage.setItem('sms_user_data', JSON.stringify(fullUser));
         } catch (err) {
-          console.warn('[AuthContext] Failed to retrieve user profile:', err);
+          // The cached user (if any) is now known to be unverified, so expose the
+          // failure instead of leaving the app silently on stale data
+          console.error('[AuthContext] Failed to retrieve user profile:', err.code, err.message);
+          setAuthError(err.message || 'Failed to load your profile. Some data may be out of date.');
         }
       } else {
         const saved = localStorage.getItem('sms_user_data');
@@ -50,24 +57,29 @@ export const AuthProvider = ({ children }) => {
     const res = await api.login({ email, password });
     if (res?.user) {
       setUser(res.user);
+      setAuthError(null);
       return res.user;
     }
     if (res?.success && res.data?.user) {
       setUser(res.data.user);
+      setAuthError(null);
       return res.data.user;
     }
-    throw new Error('Authentication failed');
+    throw new Error(res?.error?.message || res?.message || 'Authentication failed: no user was returned.');
   };
 
   const logout = async () => {
     try {
       await api.logout();
     } catch (err) {
-      // Proceed with local logout regardless of error
+      // The local session is cleared below regardless, but the remote sign-out
+      // failure must not disappear
+      console.error('[AuthContext] Remote logout failed:', err.code, err.message);
     } finally {
       localStorage.removeItem('sms_auth_token');
       localStorage.removeItem('sms_user_data');
       setUser(null);
+      setAuthError(null);
     }
   };
 
@@ -84,6 +96,7 @@ export const AuthProvider = ({ children }) => {
       value={{
         user,
         loading,
+        authError,
         isAuthenticated: !!user,
         isAdmin: user?.role === 'ADMIN',
         isFaculty: user?.role === 'FACULTY',

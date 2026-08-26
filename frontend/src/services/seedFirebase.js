@@ -313,7 +313,7 @@ let seedPromise = null;
 export const ensureFirestoreSeeded = async () => {
   if (seedPromise) return seedPromise;
 
-  seedPromise = (async () => {
+  const pending = (async () => {
     try {
       // Check if already seeded in Firestore
       const flagRef = doc(db, 'system_metadata', 'seed_status');
@@ -387,10 +387,13 @@ export const ensureFirestoreSeeded = async () => {
       console.info('[Firebase] Firestore baseline seeding completed successfully.');
       return true;
     } catch (err) {
-      console.warn('[Firebase] Firestore seed check or commit notice:', err.message);
+      console.error('[Firebase] Firestore baseline seeding failed:', err.code, err.message);
+      // Allow a later call to retry instead of caching the failure forever
+      seedPromise = null;
       return false;
     }
   })();
 
-  return seedPromise;
+  seedPromise = pending;
+  return pending;
 };

@@ -114,6 +114,34 @@ const DEMO_ACCOUNTS = {
 };
 
 /**
+ * Wraps a Firebase error in a user-facing error while keeping the original
+ * code and cause attached for logging and debugging
+ */
+const authError = (message, cause) =>
+  Object.assign(new Error(message), { cause, code: cause?.code });
+
+const WRONG_PASSWORD_CODES = ['auth/wrong-password', 'auth/invalid-credential', 'auth/invalid-login-credentials'];
+
+/**
+ * Distinguishes a genuinely wrong password from infrastructure failures so that
+ * network or rate-limit errors are not reported as bad credentials
+ */
+const reauthenticationError = (err, suffix) => {
+  console.error('[Firebase Auth] Re-authentication failed:', err.code, err.message);
+
+  if (WRONG_PASSWORD_CODES.includes(err.code)) {
+    return authError(`Current password is incorrect. ${suffix}`, err);
+  }
+  if (err.code === 'auth/too-many-requests') {
+    return authError('Too many attempts. Please wait before trying again.', err);
+  }
+  if (err.code === 'auth/network-request-failed') {
+    return authError('Could not reach the authentication service. Please check your connection.', err);
+  }
+  return authError(err.message || 'Identity verification failed.', err);
+};
+
+/**
  * Fetch or initialize the user profile document from /users/{uid}
  */
 export const getUserProfileDoc = async (uid, fallbackEmail = '') => {
@@ -149,7 +177,9 @@ export const getUserProfileDoc = async (uid, fallbackEmail = '') => {
   try {
     await setDoc(userRef, initialProfile, { merge: true });
   } catch (err) {
-    console.warn('[Firebase Auth] Could not save user profile doc:', err.message);
+    // The session can continue with an in-memory profile, but the write failure
+    // must be visible because the profile will not survive a reload
+    console.error('[Firebase Auth] Could not persist user profile doc:', err.code, err.message);
   }
 
   return initialProfile;
@@ -161,8 +191,10 @@ export const getUserProfileDoc = async (uid, fallbackEmail = '') => {
 export const loginWithFirebase = async (email, password) => {
   const cleanEmail = (email || '').trim().toLowerCase();
 
-  // Ensure baseline Firestore records exist
-  ensureFirestoreSeeded().catch(() => {});
+  // Ensure baseline Firestore records exist (best-effort, must not block login)
+  ensureFirestoreSeeded().catch((err) => {
+    console.error('[Firebase Auth] Firestore baseline seeding failed:', err.code, err.message);
+  });
 
   let userCredential;
   try {
@@ -183,7 +215,8 @@ export const loginWithFirebase = async (email, password) => {
           await updateAuthProfile(userCredential.user, { displayName: isDemoAccount.name });
         }
       } catch (createErr) {
-        throw new Error(createErr.message || 'Failed to create demo credentials.');
+        console.error('[Firebase Auth] Demo account provisioning failed:', createErr.code, createErr.message);
+        throw authError(createErr.message || 'Failed to create demo credentials.', createErr);
       }
     } else {
       let msg = 'Authentication failed. Please verify your credentials.';
@@ -193,8 +226,11 @@ export const loginWithFirebase = async (email, password) => {
         msg = 'No registered university account found for this email address.';
       } else if (err.code === 'auth/too-many-requests') {
         msg = 'Too many failed login attempts. Please try again later.';
+      } else if (err.code === 'auth/network-request-failed') {
+        msg = 'Could not reach the authentication service. Please check your connection.';
       }
-      throw new Error(msg);
+      console.error('[Firebase Auth] Sign-in failed:', err.code, err.message);
+      throw authError(msg, err);
     }
   }
 
@@ -222,7 +258,9 @@ export const logoutFromFirebase = async () => {
   try {
     await signOut(auth);
   } catch (err) {
-    console.warn('[Firebase Auth] Signout notice:', err.message);
+    // Local session is always cleared below, but a failed remote sign-out
+    // means the Firebase session may still be alive
+    console.error('[Firebase Auth] Remote sign-out failed:', err.code, err.message);
   } finally {
     localStorage.removeItem('sms_auth_token');
     localStorage.removeItem('sms_user_data');
@@ -244,7 +282,10 @@ export const getFirebaseMe = async () => {
   }
 
   const profile = await getUserProfileDoc(currentUser.uid, currentUser.email);
-  const token = await currentUser.getIdToken().catch(() => '');
+  const token = await currentUser.getIdToken().catch((err) => {
+    console.error('[Firebase Auth] Could not refresh ID token:', err.code, err.message);
+    return '';
+  });
   if (token) localStorage.setItem('sms_auth_token', token);
 
   const fullUser = {
@@ -272,7 +313,7 @@ export const changeFirebasePassword = async (currentPassword, newPassword) => {
   try {
     await reauthenticateWithCredential(currentUser, credential);
   } catch (err) {
-    throw new Error('Current password is incorrect. Please re-enter your existing password.');
+    throw reauthenticationError(err, 'Please re-enter your existing password.');
   }
 
   // 2. Update Password
@@ -280,7 +321,8 @@ export const changeFirebasePassword = async (currentPassword, newPassword) => {
     await updatePassword(currentUser, newPassword);
     return { success: true, message: 'Password updated successfully in Firebase Authentication.' };
   } catch (err) {
-    throw new Error(err.message || 'Failed to update password.');
+    console.error('[Firebase Auth] Password update failed:', err.code, err.message);
+    throw authError(err.message || 'Failed to update password.', err);
   }
 };
 
@@ -300,14 +342,15 @@ export const changeFirebaseEmail = async (newEmail, currentPassword) => {
   try {
     await reauthenticateWithCredential(currentUser, credential);
   } catch (err) {
-    throw new Error('Current password is incorrect. Identity verification failed.');
+    throw reauthenticationError(err, 'Identity verification failed.');
   }
 
   // 2. Update Firebase Auth Email
   try {
     await updateEmail(currentUser, cleanNewEmail);
   } catch (err) {
-    throw new Error(err.message || 'Failed to update email address in Firebase Authentication.');
+    console.error('[Firebase Auth] Email update failed:', err.code, err.message);
+    throw authError(err.message || 'Failed to update email address in Firebase Authentication.', err);
   }
 
   // 3. Update Firestore User Document
@@ -344,7 +387,9 @@ export const updateFirebaseProfile = async (updatedFields) => {
 
   // If displayName changed, update Auth profile
   if (updatedFields.name && currentUser) {
-    await updateAuthProfile(currentUser, { displayName: updatedFields.name }).catch(() => {});
+    await updateAuthProfile(currentUser, { displayName: updatedFields.name }).catch((err) => {
+      console.error('[Firebase Auth] Display name update failed:', err.code, err.message);
+    });
   }
 
   const fresh = await getUserProfileDoc(uid);
