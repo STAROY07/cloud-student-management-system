@@ -1,24 +1,22 @@
 const test = require('node:test');
 const assert = require('node:assert');
+const request = require('supertest');
+const { app } = require('../src/server');
 
 test('REST API & Health Check Probes', async (t) => {
-  const baseUrl = `http://localhost:8080`;
-
   await t.test('GET /api/health should return structured runtime status', async () => {
-    const res = await fetch(`${baseUrl}/api/health`);
+    const res = await request(app).get('/api/health');
     assert.strictEqual(res.status, 200);
-    const body = await res.json();
-    assert.strictEqual(body.service, 'cloud-student-management-system');
-    assert.strictEqual(body.status, 'HEALTHY');
-    assert.ok(body.database, 'Should include database health metrics');
-    assert.ok(body.runtime, 'Should include runtime telemetry');
+    assert.strictEqual(res.body.service, 'cloud-student-management-system');
+    assert.strictEqual(res.body.status, 'HEALTHY');
+    assert.ok(res.body.database, 'Should include database health metrics');
+    assert.ok(res.body.runtime, 'Should include runtime telemetry');
   });
 
   await t.test('GET /api/non-existent-route should return 404 with structured error', async () => {
-    const res = await fetch(`${baseUrl}/api/non-existent-route`);
+    const res = await request(app).get('/api/non-existent-route');
     assert.strictEqual(res.status, 404);
-    const body = await res.json();
-    assert.strictEqual(body.success, false);
-    assert.strictEqual(body.error.code, 'ROUTE_NOT_FOUND');
+    assert.strictEqual(res.body.success, false);
+    assert.strictEqual(res.body.error.code, 'ROUTE_NOT_FOUND');
   });
 });
