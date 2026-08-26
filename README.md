@@ -179,6 +179,11 @@ The database seed provides predefined accounts for demonstration and evaluation:
 
 *(Quick-login buttons are also available directly on the login screen for instant demonstration).*
 
+These accounts, their quick-login buttons, and the self-provisioning of the matching Firebase
+users are **development-only**. They are active on a local Vite dev server and are excluded from
+production builds unless `VITE_ENABLE_DEMO_ACCOUNTS=true` is set at build time. Never enable them
+for a publicly reachable deployment.
+
 ---
 
 ## 7. REST API Endpoints
@@ -258,9 +263,13 @@ An automated deployment script is provided at `scripts/deploy-gcp.sh`.
      --region us-central1 \
      --allow-unauthenticated \
      --add-cloudsql-instances=YOUR_GCP_PROJECT_ID:us-central1:cloud-sms-postgres-db \
-     --set-env-vars="NODE_ENV=production,PORT=8080,DB_NAME=cloud_sms,DB_USER=postgres,DB_SOCKET_PATH=/cloudsql/YOUR_GCP_PROJECT_ID:us-central1:cloud-sms-postgres-db" \
+     --set-env-vars="NODE_ENV=production,PORT=8080,DB_NAME=cloud_sms,DB_USER=postgres,DB_SOCKET_PATH=/cloudsql/YOUR_GCP_PROJECT_ID:us-central1:cloud-sms-postgres-db,CORS_ORIGIN=https://your-service-url" \
      --set-secrets="JWT_SECRET=SMS_JWT_SECRET:latest"
    ```
+
+   With `NODE_ENV=production` the API refuses to start unless `JWT_SECRET` (>= 32 characters),
+   `CORS_ORIGIN` (comma-separated browser origin allowlist) and a database connection are
+   configured, and it never falls back to the in-memory demo dataset.
 
 ---
 

@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { Server, Lock, Mail, AlertCircle, ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { Spinner } from '../../components/common/Spinner';
+import { DEMO_MODE_ENABLED } from '../../config/demoMode';
 
 export const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -180,6 +181,7 @@ export const Login = () => {
           </form>
 
           {/* Demonstration Quick Roles Selector */}
+          {DEMO_MODE_ENABLED && (
           <div style={{
             marginTop: '1.5rem',
             paddingTop: '1.25rem',
@@ -224,6 +226,7 @@ export const Login = () => {
               </button>
             </div>
           </div>
+          )}
         </div>
 
         {/* Footer info */}

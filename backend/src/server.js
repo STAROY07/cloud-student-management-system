@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const config = require('./config/env');
 const logger = require('./utils/logger');
 const { errorHandler, notFoundHandler } = require('./middleware/error.middleware');
@@ -33,17 +34,23 @@ app.use(
   })
 );
 
-// Cross-Origin Resource Sharing (CORS)
+// Cross-Origin Resource Sharing (CORS) restricted to the configured origins
+// plus the origin the API itself is served from (the co-hosted SPA).
 app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl, or same-origin SPA)
-      if (!origin) return callback(null, true);
-      return callback(null, true);
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  cors((req, callback) => {
+    const origin = req.headers.origin;
+    const host = req.headers.host;
+    const selfOrigins = host ? [`https://${host}`, `http://${host}`] : [];
+    const allowed =
+      // Requests without an Origin header (curl, uptime probes) are allowed
+      !origin || config.corsOrigins.includes(origin) || selfOrigins.includes(origin);
+
+    callback(null, {
+      origin: allowed,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    });
   })
 );
 
@@ -66,6 +73,25 @@ app.use((req, res, next) => {
   });
   next();
 });
+
+// Baseline rate limiting for the whole API surface
+app.use(
+  '/api',
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 1000,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (req) => req.path.startsWith('/health'),
+    message: {
+      success: false,
+      error: {
+        code: 'TOO_MANY_REQUESTS',
+        message: 'Too many requests. Please slow down and try again later.',
+      },
+    },
+  })
+);
 
 // API Routes Mounting
 app.use('/api/health', healthRoutes);
@@ -95,6 +121,9 @@ app.get('*', (req, res, next) => {
   res.sendFile(indexHtml, (err) => {
     if (err) {
       // In development if frontend is served by Vite separately
+      if (config.isProduction) {
+        return res.status(404).send('Not Found');
+      }
       return res.status(200).send(`
         <html>
           <head><title>Cloud Student Management System API</title></head>
