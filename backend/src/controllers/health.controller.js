@@ -1,12 +1,30 @@
 const { checkDbHealth } = require('../config/db');
 const config = require('../config/env');
+const logger = require('../utils/logger');
 const HTTP_STATUS = require('../constants/httpStatus');
 
 /**
  * Health check endpoint for Cloud Run and Google Cloud Monitoring probes
  */
 const getHealthStatus = async (req, res) => {
-  const dbHealth = await checkDbHealth();
+  let dbHealth;
+  try {
+    dbHealth = await checkDbHealth();
+  } catch (error) {
+    logger.error('Health probe failed while checking the database', {
+      error: error.message,
+      stack: error.stack,
+    });
+    return res.status(HTTP_STATUS.SERVICE_UNAVAILABLE).json({
+      status: 'UNHEALTHY',
+      timestamp: new Date().toISOString(),
+      service: 'cloud-student-management-system',
+      environment: config.nodeEnv,
+      uptimeSeconds: Math.floor(process.uptime()),
+      database: { status: 'DOWN', healthy: false, error: error.message },
+    });
+  }
+
   const memoryUsage = process.memoryUsage();
 
   const isHealthy = dbHealth.healthy;

@@ -94,7 +94,17 @@ app.get('*', (req, res, next) => {
   const indexHtml = path.join(clientBuildPath, 'index.html');
   res.sendFile(indexHtml, (err) => {
     if (err) {
-      // In development if frontend is served by Vite separately
+      logger.warn('Failed to serve SPA index.html', {
+        error: err.message,
+        path: indexHtml,
+        url: req.originalUrl,
+      });
+
+      if (res.headersSent || config.nodeEnv === 'production') {
+        return next(err);
+      }
+
+      // In development the frontend is served by Vite separately
       return res.status(200).send(`
         <html>
           <head><title>Cloud Student Management System API</title></head>
@@ -120,18 +130,23 @@ if (require.main === module) {
     logger.info(`Server successfully started on port ${config.port} [Environment: ${config.nodeEnv}]`);
     logger.info(`Liveness probe active at http://localhost:${config.port}/api/health`);
   });
+
+  server.on('error', (err) => {
+    logger.critical('HTTP server error', { error: err.message, stack: err.stack, port: config.port });
+    process.exit(1);
+  });
 }
 
 // Graceful Shutdown for Google Cloud Run Container lifecycle
-const shutdown = (signal) => {
+const shutdown = (signal, exitCode = 0) => {
   logger.info(`Received ${signal}. Shutting down gracefully...`);
   if (server) {
     server.close(() => {
       logger.info('HTTP server closed. Exiting process.');
-      process.exit(0);
+      process.exit(exitCode);
     });
   } else {
-    process.exit(0);
+    process.exit(exitCode);
   }
 
   // Force exit after 10s if connections linger
@@ -143,5 +158,18 @@ const shutdown = (signal) => {
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
+
+// Surface otherwise-invisible async failures instead of letting the process
+// continue in an unknown state
+process.on('unhandledRejection', (reason) => {
+  const error = reason instanceof Error ? reason : new Error(String(reason));
+  logger.critical('Unhandled promise rejection', { error: error.message, stack: error.stack });
+  shutdown('unhandledRejection', 1);
+});
+
+process.on('uncaughtException', (err) => {
+  logger.critical('Uncaught exception', { error: err.message, stack: err.stack });
+  shutdown('uncaughtException', 1);
+});
 
 module.exports = { app, server };

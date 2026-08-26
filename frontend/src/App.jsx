@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { AppShell } from './components/layout/AppShell';
 
@@ -24,84 +25,86 @@ import { ExamSchedulePage } from './pages/exams/ExamSchedulePage';
 function App() {
   return (
     <BrowserRouter>
-      <ToastProvider>
-        <AuthProvider>
-          <Routes>
-            {/* Public Authentication Route */}
-            <Route path="/login" element={<Login />} />
+      <ErrorBoundary>
+        <ToastProvider>
+          <AuthProvider>
+            <Routes>
+              {/* Public Authentication Route */}
+              <Route path="/login" element={<Login />} />
 
-            {/* Protected Application Shell */}
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <AppShell />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<Navigate to="/dashboard" replace />} />
-              <Route path="dashboard" element={<Dashboard />} />
-
-              {/* Students Module */}
+              {/* Protected Application Shell */}
               <Route
-                path="students"
+                path="/"
                 element={
-                  <ProtectedRoute allowedRoles={['ADMIN', 'FACULTY']}>
-                    <StudentList />
+                  <ProtectedRoute>
+                    <AppShell />
                   </ProtectedRoute>
                 }
-              />
-              <Route path="students/:id" element={<StudentDetail />} />
+              >
+                <Route index element={<Navigate to="/dashboard" replace />} />
+                <Route path="dashboard" element={<Dashboard />} />
 
-              {/* Faculty Module */}
-              <Route
-                path="faculty"
-                element={
-                  <ProtectedRoute allowedRoles={['ADMIN', 'FACULTY']}>
-                    <FacultyList />
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="faculty/:id" element={<FacultyDetail />} />
+                {/* Students Module */}
+                <Route
+                  path="students"
+                  element={
+                    <ProtectedRoute allowedRoles={['ADMIN', 'FACULTY']}>
+                      <StudentList />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="students/:id" element={<StudentDetail />} />
 
-              {/* Courses Module */}
-              <Route path="courses" element={<CourseList />} />
-              <Route path="courses/:id" element={<CourseDetail />} />
+                {/* Faculty Module */}
+                <Route
+                  path="faculty"
+                  element={
+                    <ProtectedRoute allowedRoles={['ADMIN', 'FACULTY']}>
+                      <FacultyList />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="faculty/:id" element={<FacultyDetail />} />
 
-              {/* Attendance & Marks Modules */}
-              <Route path="attendance" element={<AttendancePage />} />
-              <Route path="marks" element={<MarksPage />} />
-              <Route path="exams" element={<ExamSchedulePage />} />
+                {/* Courses Module */}
+                <Route path="courses" element={<CourseList />} />
+                <Route path="courses/:id" element={<CourseDetail />} />
 
-              {/* Reports Module */}
-              <Route
-                path="reports"
-                element={
-                  <ProtectedRoute allowedRoles={['ADMIN', 'FACULTY']}>
-                    <ReportsPage />
-                  </ProtectedRoute>
-                }
-              />
+                {/* Attendance & Marks Modules */}
+                <Route path="attendance" element={<AttendancePage />} />
+                <Route path="marks" element={<MarksPage />} />
+                <Route path="exams" element={<ExamSchedulePage />} />
 
-              {/* Audit Module (Admin only) */}
-              <Route
-                path="audit-logs"
-                element={
-                  <ProtectedRoute allowedRoles={['ADMIN']}>
-                    <AuditLogsPage />
-                  </ProtectedRoute>
-                }
-              />
+                {/* Reports Module */}
+                <Route
+                  path="reports"
+                  element={
+                    <ProtectedRoute allowedRoles={['ADMIN', 'FACULTY']}>
+                      <ReportsPage />
+                    </ProtectedRoute>
+                  }
+                />
 
-              {/* Settings Module */}
-              <Route path="settings" element={<SettingsPage />} />
-            </Route>
+                {/* Audit Module (Admin only) */}
+                <Route
+                  path="audit-logs"
+                  element={
+                    <ProtectedRoute allowedRoles={['ADMIN']}>
+                      <AuditLogsPage />
+                    </ProtectedRoute>
+                  }
+                />
 
-            {/* Fallback Catch-All */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
-        </AuthProvider>
-      </ToastProvider>
+                {/* Settings Module */}
+                <Route path="settings" element={<SettingsPage />} />
+              </Route>
+
+              {/* Fallback Catch-All */}
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </AuthProvider>
+        </ToastProvider>
+      </ErrorBoundary>
     </BrowserRouter>
   );
 }

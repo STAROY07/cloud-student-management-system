@@ -8,7 +8,41 @@ let isPgAvailable = false;
 let connectionChecked = false;
 
 // Initialize local store immediately for instant availability
-localStore.init().catch(err => logger.error('Failed to init local store', { error: err.message }));
+localStore.init().catch(err => logger.error('Failed to init local store', { error: err.message, stack: err.stack }));
+
+// Errors that mean PostgreSQL is unreachable, so the local engine may take over.
+// Anything else is a genuine database error and must reach the caller.
+const CONNECTION_ERROR_CODES = new Set([
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'ENOTFOUND',
+  'EPIPE',
+  'ETIMEDOUT',
+  '08000', // connection_exception
+  '08001', // sqlclient_unable_to_establish_sqlconnection
+  '08003', // connection_does_not_exist
+  '08006', // connection_failure
+  '57P03', // cannot_connect_now
+]);
+
+// Errors meaning the server answered but is not provisioned for this app. They only
+// justify the fallback while PostgreSQL has never served a successful query.
+const UNPROVISIONED_ERROR_CODES = new Set([
+  '28000', // invalid_authorization_specification
+  '28P01', // invalid_password
+  '3D000', // invalid_catalog_name (database missing)
+  '42P01', // undefined_table (migrations not run)
+]);
+
+const isConnectionError = (error) =>
+  CONNECTION_ERROR_CODES.has(error.code) ||
+  (typeof error.message === 'string' &&
+    ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'Connection terminated'].some((m) => error.message.includes(m)));
+
+const isFallbackEligible = (error) =>
+  isConnectionError(error) || (!isPgAvailable && UNPROVISIONED_ERROR_CODES.has(error.code));
 
 try {
   let poolConfig;
@@ -43,11 +77,16 @@ try {
 
   pool = new Pool(poolConfig);
   pool.on('error', (err) => {
-    // Suppress unhandled idle pool errors in local dev
     isPgAvailable = false;
+    logger.error('PostgreSQL pool error on idle client', { error: err.message, code: err.code });
   });
 } catch (e) {
+  pool = undefined;
   isPgAvailable = false;
+  logger.error('Failed to create PostgreSQL connection pool. Falling back to Local Relational Storage Engine.', {
+    error: e.message,
+    stack: e.stack,
+  });
 }
 
 /**
@@ -66,14 +105,18 @@ const query = async (text, params = []) => {
       logger.debug('Executed query on PostgreSQL', { duration: Date.now() - start, rows: res.rowCount });
       return res;
     } catch (error) {
-      if (error.code === 'ECONNREFUSED' || error.message.includes('ECONNREFUSED')) {
-        isPgAvailable = false;
-        connectionChecked = true;
-        logger.debug('PostgreSQL server not detected locally. Routing to Local Relational Engine.');
-      } else if (isPgAvailable) {
-        // If it's a real SQL syntax/constraint error from PostgreSQL, rethrow
+      if (!isFallbackEligible(error)) {
+        // Genuine SQL syntax/constraint/permission error: never mask it behind the fallback
+        logger.error('PostgreSQL query failed', { error: error.message, code: error.code });
         throw error;
       }
+
+      isPgAvailable = false;
+      connectionChecked = true;
+      logger.warn('PostgreSQL unavailable. Routing query to Local Relational Storage Engine.', {
+        error: error.message,
+        code: error.code,
+      });
     }
   }
 
@@ -1074,7 +1117,11 @@ function executeLocalQuery(sql, params) {
     return { rowCount: 1, rows: [] };
   }
 
-  // Generic fallback
+  // Generic fallback: no local handler matched, so the caller silently receives an
+  // empty result set. Log it so the gap is visible instead of looking like empty data.
+  logger.warn('Unhandled SQL statement in Local Relational Storage Engine. Returning empty result set.', {
+    sql: sql.replace(/\s+/g, ' ').slice(0, 200),
+  });
   return { rowCount: 0, rows: [] };
 }
 
@@ -1090,7 +1137,15 @@ const withTransaction = async (callback) => {
       await client.query('COMMIT');
       return result;
     } catch (error) {
-      await client.query('ROLLBACK');
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        // Never let a failed rollback mask the error that triggered it
+        logger.error('Failed to roll back transaction', {
+          error: rollbackError.message,
+          originalError: error.message,
+        });
+      }
       throw error;
     } finally {
       client.release();
@@ -1118,6 +1173,17 @@ const checkDbHealth = async () => {
       };
     } catch (err) {
       isPgAvailable = false;
+      logger.error('PostgreSQL health probe failed. Reporting degraded local mode.', {
+        error: err.message,
+        code: err.code,
+      });
+      return {
+        status: 'DEGRADED',
+        healthy: true,
+        mode: 'Local Relational Storage Engine (PostgreSQL unreachable)',
+        error: err.message,
+        timestamp: new Date().toISOString(),
+      };
     }
   }
 

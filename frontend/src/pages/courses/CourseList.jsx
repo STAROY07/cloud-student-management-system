@@ -57,11 +57,14 @@ export const CourseList = () => {
   const fetchFacultyList = async () => {
     try {
       const res = await api.getFaculty();
-      if (res.success) {
-        setFacultyList(res.data.faculty);
+      if (!res.success) {
+        throw new Error(res.error?.message || 'Failed to load the faculty list.');
       }
+      setFacultyList(res.data.faculty);
     } catch (err) {
-      // Non-blocking
+      // Course listing still works without the faculty picker, but report it
+      console.error('[CourseList] Failed to load faculty list:', err);
+      showToast('error', err.message || 'Failed to load the faculty list.');
     }
   };
 

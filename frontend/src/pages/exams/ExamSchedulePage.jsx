@@ -72,14 +72,17 @@ export const ExamSchedulePage = () => {
   const fetchCourses = async () => {
     try {
       const res = await api.getCourses();
-      if (res.success && res.data?.courses) {
-        setCourses(res.data.courses);
-        if (res.data.courses.length > 0 && !formData.courseId) {
-          setFormData((prev) => ({ ...prev, courseId: res.data.courses[0].id }));
-        }
+      if (!res.success || !res.data?.courses) {
+        throw new Error(res.error?.message || 'Failed to load the course list.');
+      }
+      setCourses(res.data.courses);
+      if (res.data.courses.length > 0 && !formData.courseId) {
+        setFormData((prev) => ({ ...prev, courseId: res.data.courses[0].id }));
       }
     } catch (err) {
-      // Non-blocking
+      // The schedule still renders without the course picker, but report it
+      console.error('[ExamSchedule] Failed to load courses:', err);
+      showToast('error', err.message || 'Failed to load the course list.');
     }
   };
 

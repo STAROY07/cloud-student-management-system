@@ -19,10 +19,11 @@ import {
   Menu,
   X,
   Calendar,
+  AlertTriangle,
 } from 'lucide-react';
 
 export const AppShell = () => {
-  const { user, logout, isAdmin, isFaculty, isStudent } = useAuth();
+  const { user, logout, isAdmin, isFaculty, isStudent, authError } = useAuth();
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -262,6 +263,24 @@ export const AppShell = () => {
 
         {/* Dynamic Multi-Page Router View */}
         <main className="page-container">
+          {authError && (
+            <div
+              className="card"
+              role="alert"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.65rem',
+                padding: '0.85rem 1rem',
+                marginBottom: '1rem',
+                borderColor: '#fecaca',
+                color: '#b91c1c',
+              }}
+            >
+              <AlertTriangle size={16} color="#dc2626" />
+              <span>{authError}</span>
+            </div>
+          )}
           <Outlet />
         </main>
       </div>
