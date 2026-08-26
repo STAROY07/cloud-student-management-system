@@ -7,10 +7,22 @@ const HTTP_STATUS = require('../constants/httpStatus');
  */
 const getHealthStatus = async (req, res) => {
   const dbHealth = await checkDbHealth();
-  const memoryUsage = process.memoryUsage();
 
   const isHealthy = dbHealth.healthy;
   const statusCode = isHealthy ? HTTP_STATUS.OK : HTTP_STATUS.SERVICE_UNAVAILABLE;
+
+  // Probes are unauthenticated, so production responses stay free of runtime
+  // and environment details.
+  if (config.isProduction) {
+    return res.status(statusCode).json({
+      status: isHealthy ? 'HEALTHY' : 'UNHEALTHY',
+      timestamp: new Date().toISOString(),
+      service: 'cloud-student-management-system',
+      database: { status: dbHealth.status, healthy: dbHealth.healthy },
+    });
+  }
+
+  const memoryUsage = process.memoryUsage();
 
   return res.status(statusCode).json({
     status: isHealthy ? 'HEALTHY' : 'UNHEALTHY',

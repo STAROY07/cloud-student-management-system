@@ -18,7 +18,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && (getRole() == 'ADMIN' || request.auth.token.email == 'admin@university.edu');
+      return isSignedIn() && getRole() == 'ADMIN';
     }
 
     function isFaculty() {
@@ -35,10 +35,19 @@ service cloud.firestore {
 
     // 1. Users Collection
     match /users/{userId} {
+      // Privileged attributes may only be assigned by an administrator
+      function privilegedFieldsUnchanged() {
+        return request.resource.data.diff(resource.data)
+          .affectedKeys()
+          .hasAny(['role', 'status', 'email', 'facultyId', 'studentId']) == false;
+      }
+
       allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      // Allow user to edit their own profile fields (name, phone) or Admin full control
-      allow update: if isOwner(userId) || isAdmin();
+      // Self-provisioning is limited to the caller's own STUDENT document
+      allow create: if isAdmin() ||
+        (isOwner(userId) && request.resource.data.role == 'STUDENT');
+      // Users may edit their own profile fields (name, phone); Admins have full control
+      allow update: if isAdmin() || (isOwner(userId) && privilegedFieldsUnchanged());
       allow delete: if isAdmin();
     }
 
@@ -95,7 +104,8 @@ service cloud.firestore {
 
     // 10. System Metadata
     match /system_metadata/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
   }
 }

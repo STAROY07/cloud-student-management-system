@@ -15,6 +15,10 @@ DB_INSTANCE_NAME="cloud-sms-postgres-db"
 DB_NAME="cloud_sms"
 DB_USER="cloud_sms_user"
 IMAGE_TAG="gcr.io/${PROJECT_ID}/${SERVICE_NAME}:latest"
+# Browser origins permitted to call the API in addition to the service's own
+# origin (comma-separated). Set CORS_ORIGIN before running to add e.g. a
+# separately hosted frontend.
+ALLOWED_ORIGINS=${CORS_ORIGIN:-"https://${SERVICE_NAME}.a.run.app"}
 
 echo "========================================================================"
 echo " Starting GCP Cloud Deployment for ${SERVICE_NAME}"
@@ -98,7 +102,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --project="${PROJECT_ID}" \
   --allow-unauthenticated \
   --add-cloudsql-instances="${INSTANCE_CONNECTION_NAME}" \
-  --set-env-vars="NODE_ENV=production,PORT=8080,DB_NAME=${DB_NAME},DB_USER=${DB_USER},DB_SOCKET_PATH=/cloudsql/${INSTANCE_CONNECTION_NAME}" \
+  --set-env-vars="NODE_ENV=production,PORT=8080,DB_NAME=${DB_NAME},DB_USER=${DB_USER},DB_SOCKET_PATH=/cloudsql/${INSTANCE_CONNECTION_NAME},CORS_ORIGIN=${ALLOWED_ORIGINS}" \
   --set-secrets="JWT_SECRET=SMS_JWT_SECRET:latest" \
   --min-instances=0 \
   --max-instances=5 \

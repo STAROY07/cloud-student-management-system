@@ -16,7 +16,8 @@ const errorHandler = (err, req, res, next) => {
 
   const statusCode = err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
   const errorCode = err.code || 'INTERNAL_SERVER_ERROR';
-  const message = statusCode === HTTP_STATUS.INTERNAL_SERVER_ERROR && config.nodeEnv === 'production'
+  const isDevelopment = config.nodeEnv === 'development';
+  const message = statusCode === HTTP_STATUS.INTERNAL_SERVER_ERROR && !isDevelopment
     ? 'An unexpected error occurred on the server. Please try again later.'
     : err.message || 'Internal Server Error';
 
@@ -25,7 +26,7 @@ const errorHandler = (err, req, res, next) => {
     error: {
       code: errorCode,
       message,
-      ...(config.nodeEnv !== 'production' && { stack: err.stack }),
+      ...(isDevelopment && { stack: err.stack }),
     },
   });
 };

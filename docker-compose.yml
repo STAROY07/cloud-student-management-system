@@ -29,8 +29,10 @@ services:
       PORT: 8080
       NODE_ENV: production
       DATABASE_URL: postgresql://postgres:postgrespassword@postgres:5432/cloud_sms
-      JWT_SECRET: local-compose-development-super-secret-key-min-32
+      # Local-only credentials for this compose stack; never reuse for a deployment
+      JWT_SECRET: ${JWT_SECRET:-local-compose-development-super-secret-key-min-32}
       JWT_EXPIRES_IN: 24h
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
     depends_on:
       postgres:
         condition: service_healthy

@@ -20,17 +20,16 @@ import {
   getDocs,
 } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import { DEMO_MODE_ENABLED } from '../config/demoMode';
 import { ensureFirestoreSeeded, INITIAL_SEED_DATA } from './seedFirebase';
 
 const DEMO_ACCOUNTS = {
   'admin@university.edu': {
-    password: 'Admin@123',
     name: 'System Administrator',
     role: 'ADMIN',
     department: 'Administration',
   },
   'dr.smith@university.edu': {
-    password: 'Faculty@123',
     name: 'Dr. Robert Smith',
     role: 'FACULTY',
     department: 'Computer Science',
@@ -39,7 +38,6 @@ const DEMO_ACCOUNTS = {
     facultyId: 'fac-1',
   },
   'prof.davis@university.edu': {
-    password: 'Faculty@123',
     name: 'Prof. Sarah Davis',
     role: 'FACULTY',
     department: 'Information Technology',
@@ -48,7 +46,6 @@ const DEMO_ACCOUNTS = {
     facultyId: 'fac-2',
   },
   'dr.patel@university.edu': {
-    password: 'Faculty@123',
     name: 'Dr. Anita Patel',
     role: 'FACULTY',
     department: 'Computer Science',
@@ -57,7 +54,6 @@ const DEMO_ACCOUNTS = {
     facultyId: 'fac-3',
   },
   'student.alex@university.edu': {
-    password: 'Student@123',
     name: 'Alex Johnson',
     role: 'STUDENT',
     department: 'Computer Science',
@@ -68,7 +64,6 @@ const DEMO_ACCOUNTS = {
     phone: '+1 (555) 234-5678',
   },
   'student.emma@university.edu': {
-    password: 'Student@123',
     name: 'Emma Williams',
     role: 'STUDENT',
     department: 'Computer Science',
@@ -79,7 +74,6 @@ const DEMO_ACCOUNTS = {
     phone: '+1 (555) 345-6789',
   },
   'student.michael@university.edu': {
-    password: 'Student@123',
     name: 'Michael Brown',
     role: 'STUDENT',
     department: 'Computer Science',
@@ -90,7 +84,6 @@ const DEMO_ACCOUNTS = {
     phone: '+1 (555) 456-7890',
   },
   'student.sophia@university.edu': {
-    password: 'Student@123',
     name: 'Sophia Taylor',
     role: 'STUDENT',
     department: 'Information Technology',
@@ -101,7 +94,6 @@ const DEMO_ACCOUNTS = {
     phone: '+1 (555) 567-8901',
   },
   'student.david@university.edu': {
-    password: 'Student@123',
     name: 'David Miller',
     role: 'STUDENT',
     department: 'Computer Science',
@@ -126,7 +118,7 @@ export const getUserProfileDoc = async (uid, fallbackEmail = '') => {
 
   // If user document is missing, create from demo metadata or defaults
   const normalizedEmail = (fallbackEmail || auth.currentUser?.email || '').toLowerCase().trim();
-  const demoMeta = DEMO_ACCOUNTS[normalizedEmail] || {};
+  const demoMeta = (DEMO_MODE_ENABLED && DEMO_ACCOUNTS[normalizedEmail]) || {};
 
   const initialProfile = {
     uid,
@@ -169,7 +161,7 @@ export const loginWithFirebase = async (email, password) => {
     userCredential = await signInWithEmailAndPassword(auth, cleanEmail, password);
   } catch (err) {
     // If user not found and email is a predefined demo account, auto-provision
-    const isDemoAccount = DEMO_ACCOUNTS[cleanEmail];
+    const isDemoAccount = DEMO_MODE_ENABLED ? DEMO_ACCOUNTS[cleanEmail] : null;
     if (
       isDemoAccount &&
       (err.code === 'auth/user-not-found' ||

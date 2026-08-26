@@ -7,8 +7,14 @@ let pool;
 let isPgAvailable = false;
 let connectionChecked = false;
 
-// Initialize local store immediately for instant availability
-localStore.init().catch(err => logger.error('Failed to init local store', { error: err.message }));
+// The in-memory store ships with well-known demo credentials, so it must never
+// back a production deployment.
+const localStoreEnabled = !config.isProduction;
+
+if (localStoreEnabled) {
+  // Initialize local store immediately for instant availability
+  localStore.init().catch(err => logger.error('Failed to init local store', { error: err.message }));
+}
 
 try {
   let poolConfig;
@@ -66,6 +72,9 @@ const query = async (text, params = []) => {
       logger.debug('Executed query on PostgreSQL', { duration: Date.now() - start, rows: res.rowCount });
       return res;
     } catch (error) {
+      if (!localStoreEnabled) {
+        throw error;
+      }
       if (error.code === 'ECONNREFUSED' || error.message.includes('ECONNREFUSED')) {
         isPgAvailable = false;
         connectionChecked = true;
@@ -78,6 +87,9 @@ const query = async (text, params = []) => {
   }
 
   // Local Relational Storage Engine Execution
+  if (!localStoreEnabled) {
+    throw new Error('Database is unavailable and the local storage engine is disabled in production.');
+  }
   await localStore.init();
   return executeLocalQuery(normalizedSql, params);
 };
@@ -1098,6 +1110,9 @@ const withTransaction = async (callback) => {
   }
 
   // Local simulated atomic transaction
+  if (!localStoreEnabled) {
+    throw new Error('Database is unavailable and the local storage engine is disabled in production.');
+  }
   return callback({
     query: async (text, params) => query(text, params),
   });
@@ -1119,6 +1134,15 @@ const checkDbHealth = async () => {
     } catch (err) {
       isPgAvailable = false;
     }
+  }
+
+  if (!localStoreEnabled) {
+    return {
+      status: 'DOWN',
+      healthy: false,
+      mode: 'PostgreSQL (Cloud SQL)',
+      timestamp: new Date().toISOString(),
+    };
   }
 
   return {
