@@ -2,7 +2,7 @@ import * as firebaseAuth from './firebaseAuth';
 import * as firebaseDb from './firebaseDb';
 
 /**
- * Cloud Student Management System Unified API Interface
+ * StudentHub Unified API Interface
  * Powered by Firebase Authentication & Cloud Firestore
  */
 export const api = {

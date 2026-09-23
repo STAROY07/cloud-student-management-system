@@ -39,10 +39,23 @@ export const Login = () => {
     }
   };
 
-  const handleQuickFill = (roleEmail, rolePass) => {
+  const handleQuickFill = async (roleEmail, rolePass, autoLogin = true) => {
     setEmail(roleEmail);
     setPassword(rolePass);
     setError('');
+
+    if (autoLogin) {
+      try {
+        setLoading(true);
+        const user = await login(roleEmail, rolePass);
+        showToast('success', `Welcome to StudentHub, ${user.name}!`);
+        navigate(from, { replace: true });
+      } catch (err) {
+        setError(err.message || 'Authentication failed. Please verify your credentials.');
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 
   return (
@@ -65,29 +78,50 @@ export const Login = () => {
       }}>
         {/* Header Branding */}
         <div style={{
-          padding: '2.25rem 2rem 1.5rem',
+          padding: '2rem 2rem 1.25rem',
           textAlign: 'center',
           borderBottom: '1px solid #f1f5f9',
         }}>
           <div style={{
-            width: 44,
-            height: 44,
-            borderRadius: 10,
-            background: '#2563eb',
-            color: '#ffffff',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
             marginBottom: '0.75rem',
           }}>
-            <Server size={22} />
+            <img
+              src="/logo.png"
+              alt="StudentHub Logo"
+              style={{
+                width: 72,
+                height: 72,
+                borderRadius: '50%',
+                objectFit: 'contain',
+                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.15)',
+                border: '2px solid #f1f5f9',
+              }}
+            />
           </div>
-          <h1 style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
-            Cloud Student Management System
+          <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.03em', margin: 0 }}>
+            Student<span style={{ color: '#0284c7' }}>Hub</span>
           </h1>
-          <p style={{ fontSize: '0.825rem', color: '#64748b', marginTop: '0.25rem' }}>
-            Semester 5 • Cloud Computing Administration
+          <p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginTop: '0.35rem', lineHeight: 1.3 }}>
+            Student Attendance & Performance Management System
           </p>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            fontSize: '0.72rem',
+            fontWeight: 700,
+            letterSpacing: '0.12em',
+            color: '#059669',
+            marginTop: '0.5rem',
+            padding: '0.2rem 0.75rem',
+            borderRadius: 999,
+            background: '#ecfdf5',
+          }}>
+            LEARN • TRACK • GROW
+          </div>
         </div>
 
         {/* Form Body */}

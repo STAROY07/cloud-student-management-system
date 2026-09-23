@@ -63,7 +63,10 @@ export const StudentDetail = () => {
     );
   }
 
-  const { student, enrollments, attendance, marks } = studentData;
+  const student = studentData?.student;
+  const enrollments = studentData?.enrolledCourses || studentData?.enrollments || [];
+  const attendance = studentData?.attendanceRecords || studentData?.attendance || [];
+  const marks = studentData?.marksRecords || studentData?.marks || [];
 
   return (
     <div>

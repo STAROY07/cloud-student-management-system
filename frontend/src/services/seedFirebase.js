@@ -299,7 +299,7 @@ export const INITIAL_SEED_DATA = {
       action: 'SYSTEM_FIREBASE_INITIALIZATION',
       entity: 'SYSTEM',
       entityId: 'firebase-core',
-      details: { note: 'Cloud Student Management System Firebase data layer initialized' },
+      details: { note: 'StudentHub Firebase data layer initialized' },
       ipAddress: '127.0.0.1',
     },
   ],

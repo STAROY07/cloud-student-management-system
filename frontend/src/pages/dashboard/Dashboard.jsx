@@ -75,9 +75,9 @@ export const Dashboard = () => {
       {/* Welcome Header */}
       <div className="page-header">
         <div className="page-title-group">
-          <h1>Dashboard</h1>
+          <h1>StudentHub Academic Dashboard</h1>
           <p>
-            Welcome back, <strong>{user?.name}</strong> • Real-time database metrics for Semester 5
+            Welcome back, <strong>{user?.name}</strong> • Real-time Student Attendance & Performance Management
           </p>
         </div>
       </div>

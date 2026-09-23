@@ -62,12 +62,22 @@ export const AppShell = () => {
       <aside className={`app-sidebar ${isMobileNavOpen ? 'mobile-open' : ''}`}>
         <div className="sidebar-header" style={{ justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div className="brand-icon">
-              <Server size={18} />
-            </div>
+            <img
+              src="/logo.png"
+              alt="StudentHub Logo"
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 8,
+                objectFit: 'contain',
+                background: '#ffffff',
+                padding: '2px',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+              }}
+            />
             <div>
-              <div className="brand-title">Cloud SMS</div>
-              <div className="brand-subtitle">Semester 5 Platform</div>
+              <div className="brand-title" style={{ fontSize: '1.05rem', fontWeight: 700, letterSpacing: '-0.02em' }}>StudentHub</div>
+              <div className="brand-subtitle" style={{ fontSize: '0.68rem', color: '#94a3b8' }}>Attendance & Performance</div>
             </div>
           </div>
           {/* Close button on mobile inside drawer */}
