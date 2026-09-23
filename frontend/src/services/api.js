@@ -53,7 +53,7 @@ export const api = {
   recordMarks: (data) => firebaseDb.recordMarks(data),
 
   // Reports (Cloud Firestore)
-  getReports: (params) => firebaseDb.getAcademicReports(params),
+  getReports: (params) => firebaseDb.getReports(params),
 
   // Audit Logs (Cloud Firestore)
   getAuditLogs: (params) => firebaseDb.getAuditLogs(params),
